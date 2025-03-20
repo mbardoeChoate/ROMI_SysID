@@ -1,15 +1,83 @@
-#
-# Copyright (c) FIRST and other WPILib contributors.
-# Open Source Software; you can modify and/or share it under the terms of
-# the WPILib BSD license file in the root directory of this project.
-#
 
-import math
-
+from commands2 import Subsystem
+from romi import RomiGyro
+import wpimath.units
 import commands2
 import wpilib
 import wpilib.drive
+from wpilib import RobotController
 import romi
+from wpilib.drive import DifferentialDrive
+
+from utils.mathutils import clamp
+
+
+class RomiDrivetrain(Subsystem):
+    kCountsPerRevolution = 1440.0
+
+    def __init__(self):
+        super().__init__()
+        self.setName("RomiDrivetrain")
+        self.left_motor = wpilib.Spark(0)
+        self.right_motor = wpilib.Spark(1)
+        self.left_motor.setInverted(False)
+        self.right_motor.setInverted(True)
+
+        self.left_encoder = wpilib.Encoder(4, 5)
+        self.right_encoder = wpilib.Encoder(6, 7)
+
+        # For ease of characterization, we will output the number of wheel rotations
+        # (vs. actual distance)
+
+        self.left_encoder.setDistancePerPulse(1/ self.kCountsPerRevolution)
+        self.right_encoder.setDistancePerPulse(1 / self.kCountsPerRevolution)
+        self.reset_encoders()
+        self.drive=DifferentialDrive(self.left_motor, self.right_motor)
+
+        self.gyro = RomiGyro()
+
+    def reset_encoders(self):
+        self.left_encoder.reset()
+        self.right_encoder.reset()
+
+    def get_left_distance(self):
+        return self.left_encoder.getDistance()
+
+    def get_right_distance(self):
+        return self.right_encoder.getDistance()
+
+    def get_left_encoder_rate(self):
+        return self.left_encoder.getRate()
+
+    def get_right_encoder_rate(self):
+        return self.right_encoder.getRate()
+
+    def tank_drive_volts(self, left_volts, right_volts):
+        battery_voltage = RobotController.getBatteryVoltage()
+        left_speed = clamp(left_volts / battery_voltage, -1, 1)
+        right_speed = clamp(right_volts / battery_voltage, -1, 1)
+        self.left_motor.set(left_speed)
+        self.right_motor.set(right_speed)
+
+
+    def stop(self):
+        self.left_motor.set(0)
+        self.right_motor.set(0)
+
+    def get_gyro_angle(self):
+        return wpimath.units.degreesToRadians(-self.gyro.getAngleZ())
+
+    def get_gyro_rate(self):
+        return self.gyro.getRateZ()
+
+    def arcadeDrive(self, fwd: float, rot: float) -> None:
+        """
+        Drives the robot using arcade controls.
+
+        :param fwd: the commanded forward movement
+        :param rot: the commanded rotation
+        """
+        self.drive.arcadeDrive(fwd, rot, True)
 
 
 class Drivetrain(commands2.Subsystem):
@@ -99,7 +167,7 @@ class Drivetrain(commands2.Subsystem):
 
     def getAverageDistanceInch(self) -> float:
         """Gets the average distance of the TWO encoders."""
-        return (self.getLeftDistanceInch() + self.getRightDistanceInch()) / 2.0
+        return (self.getLeftDistance() + self.getRightDistance()) / 2.0
 
     def getAccelX(self) -> float:
         """The acceleration in the X-axis.
@@ -146,3 +214,4 @@ class Drivetrain(commands2.Subsystem):
     def resetGyro(self) -> None:
         """Reset the gyro"""
         self.gyro.reset()
+
