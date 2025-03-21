@@ -1,5 +1,8 @@
 
-from commands2 import Subsystem
+from commands2 import Subsystem, Command
+from typing import Callable
+
+
 from commands2.sysid import SysIdRoutine
 from romi import RomiGyro
 import wpimath.units
@@ -111,6 +114,24 @@ class RomiDrivetrain(Subsystem):
         ).position(self.right_encoder.getDistance()).velocity(
             self.right_encoder.getRate()
         )
+    def arcadeDriveCommand(
+        self, fwd: Callable[[], float], rot: Callable[[], float]
+    ) -> Command:
+        """Returns a command that drives the robot with arcade controls.
+
+        :param fwd: the commanded forward movement
+        :param rot: the commanded rotation
+        """
+
+        # A split-stick arcade command, with forward/backward controlled by the left
+        # hand, and turning controlled by the right.
+        return self.run(lambda: self.drive.arcadeDrive(fwd(), rot()))
+
+    def sysIdQuasistatic(self, direction: SysIdRoutine.Direction) -> Command:
+        return self.sys_id_routine.quasistatic(direction)
+
+    def sysIdDynamic(self, direction: SysIdRoutine.Direction) -> Command:
+        return self.sys_id_routine.dynamic(direction)
 
 
 class Drivetrain(commands2.Subsystem):
