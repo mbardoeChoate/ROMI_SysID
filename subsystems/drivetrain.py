@@ -14,6 +14,8 @@ from wpilib import RobotController
 import romi
 from wpimath.units import volts
 from wpilib.drive import DifferentialDrive
+from wpilib import DataLogManager
+from wpiutil.log import DoubleLogEntry, StringLogEntry
 
 from utils.mathutils import clamp
 
@@ -42,6 +44,14 @@ class RomiDrivetrain(Subsystem):
 
         self.gyro = RomiGyro()
 
+        self.log = DataLogManager.getLog()
+        self.leftPositionLog = DoubleLogEntry(self.log, "/drive/leftPosition")
+        self.rightPositionLog = DoubleLogEntry(self.log, "/drive/rightPosition")
+        self.leftVelocityLog = DoubleLogEntry(self.log, "/drive/leftVelocity")
+        self.rightVelocityLog = DoubleLogEntry(self.log, "/drive/rightVelocity")
+        self.motorVoltageLog = DoubleLogEntry(self.log, "/drive/appliedVoltage")
+        self.testTypeLog = StringLogEntry(self.log, "/sysid/testType")
+
         # Tell SysId how to plumb the driving voltage to the motors.
         def drive(voltage: volts) -> None:
             self.left_motor.setVoltage(voltage)
@@ -50,9 +60,21 @@ class RomiDrivetrain(Subsystem):
         # Tell SysId to make generated commands require this subsystem, suffix test state in
         # WPILog with this subsystem's name ("drive")
         self.sys_id_routine = SysIdRoutine(
-            SysIdRoutine.Config(),
-            SysIdRoutine.Mechanism(drive, self.log, self),
+            SysIdRoutine.Config(recordState=self.logSysId),
+            SysIdRoutine.Mechanism(drive, self.recordState, self),
         )
+
+    def logSysId(self, state: wpilib.sysid.State):
+        self.testTypeLog.append(SysIdRoutineLog.stateEnumToString(state))
+
+    def recordState(self, thing: SysIdRoutineLog):
+        # Log encoders
+        self.leftPositionLog.append(self.left_encoder.getDistance())
+        self.rightPositionLog.append(self.right_encoder.getDistance())
+        self.leftVelocityLog.append(self.left_encoder.getRate())
+        self.rightVelocityLog.append(self.right_encoder.getRate())
+        # You may want to log battery voltage here too
+        self.motorVoltageLog.append(self.left_motor.get() * RobotController.getBatteryVoltage())
 
     def reset_encoders(self):
         self.left_encoder.reset()
