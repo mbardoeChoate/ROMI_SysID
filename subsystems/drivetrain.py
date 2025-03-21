@@ -1,12 +1,15 @@
 
 from commands2 import Subsystem
+from commands2.sysid import SysIdRoutine
 from romi import RomiGyro
 import wpimath.units
+from wpilib.sysid import SysIdRoutineLog
 import commands2
 import wpilib
 import wpilib.drive
 from wpilib import RobotController
 import romi
+from wpimath.units import volts
 from wpilib.drive import DifferentialDrive
 
 from utils.mathutils import clamp
@@ -35,6 +38,18 @@ class RomiDrivetrain(Subsystem):
         self.drive=DifferentialDrive(self.left_motor, self.right_motor)
 
         self.gyro = RomiGyro()
+
+        # Tell SysId how to plumb the driving voltage to the motors.
+        def drive(voltage: volts) -> None:
+            self.left_motor.setVoltage(voltage)
+            self.right_motor.setVoltage(voltage)
+
+        # Tell SysId to make generated commands require this subsystem, suffix test state in
+        # WPILog with this subsystem's name ("drive")
+        self.sys_id_routine = SysIdRoutine(
+            SysIdRoutine.Config(),
+            SysIdRoutine.Mechanism(drive, self.log, self),
+        )
 
     def reset_encoders(self):
         self.left_encoder.reset()
@@ -78,6 +93,24 @@ class RomiDrivetrain(Subsystem):
         :param rot: the commanded rotation
         """
         self.drive.arcadeDrive(fwd, rot, True)
+
+    # Tell SysId how to record a frame of data for each motor on the mechanism being
+    # characterized.
+    def log(self, sys_id_routine: SysIdRoutineLog) -> None:
+        # Record a frame for the left motors.  Since these share an encoder, we consider
+        # the entire group to be one motor.
+        sys_id_routine.motor("drive-left").voltage(
+            self.left_motor.get() * RobotController.getBatteryVoltage()
+        ).position(self.left_encoder.getDistance()).velocity(
+            self.left_encoder.getRate()
+        )
+        # Record a frame for the right motors.  Since these share an encoder, we consider
+        # the entire group to be one motor.
+        sys_id_routine.motor("drive-right").voltage(
+            self.right_motor.get() * RobotController.getBatteryVoltage()
+        ).position(self.right_encoder.getDistance()).velocity(
+            self.right_encoder.getRate()
+        )
 
 
 class Drivetrain(commands2.Subsystem):

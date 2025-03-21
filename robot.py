@@ -42,3 +42,6 @@ class Robot(commands2.TimedCommandRobot):
         forward = self.joystick.getY()
         rotation = self.joystick.getX()
         self.drivetrain.arcadeDrive(forward, rotation)
+
+# To run the robot put this in the terminal
+# python3 -m robotpy sim --ws-client
