@@ -12,7 +12,7 @@ allows us to take log files that are properly formatted and that program does st
 a mathematical equation that can be used to estimate what voltage is needed to make the robot act in a specific way. In
 our case the model is:
 
-\[Voltage= K_s\cdot sign(velocity) +K_v \cdot velocity+K_a \cdot Acceleration\]
+Voltage= K_s * sign(velocity) +K_v * velocity+K_a * acceleration
 
 In this model $Ks$ stands for how much voltage it takes to get the motor to move at all. $Kv$ is how 
 much more voltage we would need to increase the velocity by 1, and $Ka$ is the amount of voltage we need to increase the 
